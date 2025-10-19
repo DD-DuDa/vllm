@@ -341,7 +341,7 @@ class CudaPlatformBase(Platform):
             )
             TREE_ATTN_V1 = "vllm.v1.attention.backends.tree_attn.TreeAttentionBackend"  # noqa: E501
             XFORMERS_V1 = "vllm.v1.attention.backends.xformers.XFormersAttentionBackend"  # noqa: E501
-
+            BITDECODE_V1 = "vllm.v1.attention.backends.bitdecode_attn.BitDecodeAttentionBackend"  # noqa: E501
             use_fp8_kv_cache = kv_cache_dtype is not None and kv_cache_dtype.startswith(
                 "fp8"
             )
@@ -368,6 +368,9 @@ class CudaPlatformBase(Platform):
             elif selected_backend == _Backend.XFORMERS:
                 logger.info_once("Using XFormers backend on V1 engine.")
                 return XFORMERS_V1
+            elif selected_backend == _Backend.BITDECODE:
+                logger.info_once("Using BitDecode backend on V1 engine.")
+                return BITDECODE_V1
 
             from vllm.attention.selector import is_attn_backend_supported
 

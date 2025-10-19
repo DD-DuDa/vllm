@@ -561,6 +561,47 @@ class FlashAttentionImpl(AttentionImpl):
         # For decoder and cross-attention, use KV cache as before
         key_cache, value_cache = kv_cache.unbind(0)
 
+        seqlen_kv = attn_metadata.num_actual_tokens
+        d = self.head_size
+        batch_size = attn_metadata.seq_lens.shape[0]
+        device = query.device
+        self.pack_nums = 16 // 4
+        self.group_size = 128
+
+        k_pack = torch.zeros(
+            (batch_size, int(seqlen_kv // self.pack_nums), self.num_kv_heads, d),
+            dtype=torch.uint16,
+            device=device
+        )
+        k_params = torch.zeros(
+            (batch_size, int(seqlen_kv // self.group_size), self.num_kv_heads, d),
+            dtype=torch.float32,
+            device=device
+        )
+        
+        v_pack = torch.zeros(
+            (batch_size, seqlen_kv, self.num_kv_heads, int(d // self.pack_nums)),
+            dtype=torch.uint16,
+            device=device
+        )
+        v_params = torch.zeros(
+            (batch_size, int(d // self.group_size), self.num_kv_heads, seqlen_kv),
+            dtype=torch.float32,
+            device=device
+        )
+        cu_seqlens_k = torch.arange(
+            0, (batch_size + 1) * seqlen_kv, seqlen_kv, dtype=torch.int32, device=device
+        )
+        q_pack = torch.zeros(
+            (batch_size, 1, self.num_heads, d),
+            dtype=torch.float16,
+            device=device
+        )
+        out_bitdecode = torch.zeros(
+            (batch_size, 1, self.num_heads, d),
+            dtype=torch.float16,
+            device=device
+        )
         # key and value may be None in the case of cross attention. They are
         # calculated once based on the output from the encoder and then cached
         # in KV cache.
